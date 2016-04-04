@@ -2,36 +2,47 @@
 #include <LiquidCrystal_I2C.h>
 #include <NewPing.h>
 #include <NewTone.h>
+#include <OneWire.h>
+
 
 LiquidCrystal_I2C lcd(i2cLCD, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
 int currentAutoriumState = 0;                 // Stores if any current action is being performed by Autorium: 0 - None; 1 - Water Extract;; 2 - Water Refill  
+volatile int inwardFlowCount = 0;             // Count from the inward flow sensor
+volatile int outwardFlowCount = 0;            // Count from the outward flow sensor
 
 void setup() {
   // Initialze relay pins
-  pinMode(relayLight, OUTPUT);
-  pinMode(relayExtractor, OUTPUT);
-  pinMode(relayFilter, OUTPUT);
-  pinMode(relayHeater, OUTPUT);
-  pinMode(relayAirPump, OUTPUT);
+  pinMode(LIGHT_RELAY_PIN, OUTPUT);
+  pinMode(EXTRACTOR_RELAY_PIN, OUTPUT);
+  pinMode(FILTER_RELAY_PIN, OUTPUT);
+  pinMode(HEATER_RELAY_PIN, OUTPUT);
+  pinMode(AIR_PUMP_RELAY_PIN, OUTPUT);
 
   // Intialize all motors/relays to safe values
-  digitalWrite(relayLight, HIGH);             // Set the light relay to high state (Switch on)
-  digitalWrite(relayExtractor, LOW);          // Set the extractor motor relay to low state (Switch off)
-  digitalWrite(relayFilter, LOW);             // Set the filter relay to low state (Switch off)
-  digitalWrite(relayHeater, LOW);             // Set the heater relay to low state (Switch off)
-  digitalWrite(relayAirPump, HIGH);           // Set the Air Pump relay to high state (Switch on)
+  digitalWrite(LIGHT_RELAY_PIN, HIGH);             // Set the light relay to high state (Switch on)
+  digitalWrite(EXTRACTOR_RELAY_PIN, LOW);          // Set the extractor motor relay to low state (Switch off)
+  digitalWrite(FILTER_RELAY_PIN, LOW);             // Set the filter relay to low state (Switch off)
+  digitalWrite(HEATER_RELAY_PIN, LOW);             // Set the heater relay to low state (Switch off)
+  digitalWrite(AIR_PUMP_RELAY_PIN, HIGH);           // Set the Air Pump relay to high state (Switch on)
 
   // Initialize solenoid pins
-  pinMode(inFlowSolenoid, OUTPUT);
-  pinMode(outFlowSolenoid, OUTPUT);
+  pinMode(INWARD_FLOW_SOLENOID_PIN, OUTPUT);
+  pinMode(OUTWARD_FLOW_SOLENOID_PIN, OUTPUT);
 
-  // Intialize all motors/relays to safe values
-  digitalWrite(inFlowSolenoid, LOW);          // Set the in flow solenoid valve to closed (No water flow)
-  digitalWrite(outFlowSolenoid, LOW);         // Set the out flow solenoid valve to closed (No water flow)
-  
+  // Close all solenoid valves
+  digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);          // Set the in flow solenoid valve to closed (No water flow)
+  digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);         // Set the out flow solenoid valve to closed (No water flow)
 
-  #if defined(devMode)
+  // Initialize flow sensor pins
+  pinMode(INWARD_FLOW_SENSOR_PIN, INPUT);
+  pinMode(OUTWARD_FLOW_SENSOR_PIN, INPUT);
+
+  // Attach interrupt with flow sensor pins
+  attachInterrupt(digitalPinToInterrupt(INWARD_FLOW_SENSOR_PIN), inwardFlowSensor, RISING);
+  attachInterrupt(digitalPinToInterrupt(OUTWARD_FLOW_SENSOR_PIN), outwardFlowSensor, RISING);
+
+  #if defined(DEV_MODE)
     Serial.begin(9600);  // Initialise the serial port. This would be the same serial port used for programming the board.
     Serial.print("Starting Autorium version ");
     Serial.println(AUTORIUM_VERSION);
@@ -49,7 +60,7 @@ void setup() {
     lcd.print("Max wtr level >");
     lcd.setCursor(0,1);
     lcd.print("Aquarium height");
-    #if defined(devMode)
+    #if defined(DEV_MODE)
       Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
     #endif
   }
@@ -60,9 +71,10 @@ void setup() {
 
 void loop() {
   // STEPS:
-  //
-  // a) Get the depth for water using ultrasonic sensor (Use NewPing library)
-  // b) 
+  // 
+  // a) Get the current date and time using the RTC
+  // b) Get the depth for water using ultrasonic sensor (Use NewPing library)
+  // c) 
 
 }
 
@@ -111,4 +123,13 @@ void initLCD(int columns, int rows){
   lcd.print(AUTORIUM_VERSION);
 }
 
+// Callback routine for Inward Flow sensor
+void inwardFlowSensor(){
+  inwardFlowCount++;
+}
+
+// Callback routine for Outward Flow sensor
+void outwardFlowSensor(){
+  outwardFlowCount++;
+}
 
