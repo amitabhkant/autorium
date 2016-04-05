@@ -18,25 +18,27 @@
 #define INWARD_FLOW_SOLENOID_PIN 4
 #define OUTWARD_FLOW_SOLENOID_PIN 5
 
-// Define LCD I2C addresses
-#define i2cLCD 0x27
+// Define I2C addresses
+#define LCD_I2C_ADDRESS 0x27
+#define RTC_I2C_ADDRESS 0x68
+#define EEPROM_I2C_ADDRESS 0x57
 
 #define TONE_PIN 8 // Pin speaker/piezo is connected (Include a 100 ohm resistor).
 
 #define TRIGGER_PIN  12  // Pin tied to trigger pin on the ultrasonic sensor.
 #define ECHO_PIN     11  // Pin tied to echo pin on the ultrasonic sensor.
-#define MAX_DISTANCE 200 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
+#define MAX_DISTANCE 400 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
 // Any definitions below this point might be changed into varaibles later, so they are following camel case notation
 
 // Define your aquarium dimensions in centimeters
-#define aquariumHeight 100      // Z Axis
-#define aquariumLength 150      // Y Axis
-#define aquariumWidth 50        // X Axis
+#define aquariumHeight 70      // Z Axis
+#define aquariumLength 130      // Y Axis
+#define aquariumWidth 45        // X Axis
 #define aquariumShape 0         // 0 - Rectangle/Cube; 1 - Circular/Cylindrical 
 
 // Define water level in centimeters
-#define maxWaterLevel 90
-#define minWaterLevel 15
+#define maxWaterLevel 60
+#define minWaterLevel 10
 
 

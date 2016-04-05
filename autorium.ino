@@ -5,7 +5,7 @@
 #include <OneWire.h>
 
 
-LiquidCrystal_I2C lcd(i2cLCD, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
 
 int currentAutoriumState = 0;                 // Stores if any current action is being performed by Autorium: 0 - None; 1 - Water Extract;; 2 - Water Refill  
 volatile int inwardFlowCount = 0;             // Count from the inward flow sensor
@@ -71,10 +71,9 @@ void setup() {
 
 void loop() {
   // STEPS:
-  // 
   // a) Get the current date and time using the RTC
   // b) Get the depth for water using ultrasonic sensor (Use NewPing library)
-  // c) 
+  // c) Get the current temperature
 
 }
 
