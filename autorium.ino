@@ -1,4 +1,5 @@
 #include "autorium.h"
+#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <NewPing.h>
 #include <NewTone.h>
@@ -42,17 +43,21 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(INWARD_FLOW_SENSOR_PIN), inwardFlowSensor, RISING);
   attachInterrupt(digitalPinToInterrupt(OUTWARD_FLOW_SENSOR_PIN), outwardFlowSensor, RISING);
 
+  Wire.begin();   // Initialize the I2C wire protocol
+
+  initLCD(16, 2);             // LCD test
+  
   #if defined(DEV_MODE)
     Serial.begin(9600);  // Initialise the serial port. This would be the same serial port used for programming the board.
     Serial.print("Starting Autorium version ");
     Serial.println(AUTORIUM_VERSION);
     Serial.println("Debug Mode is ON");
+    
+    i2cScanner();         // Run the I2C scanner to check for peripherals
   #endif
 
   initRelayBoard(31, 5);      // Led blink test on all active ports
       
-  initLCD(16, 2);             // LCD test
-
   // Max water level should be 5 cm less than Aquarium height
   if(maxWaterLevel > aquariumHeight - 5){
     lcd.clear();
@@ -65,13 +70,14 @@ void setup() {
     #endif
   }
 
+  displayTime(); // Display current time
+
   NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
 
 }
 
 void loop() {
   // STEPS:
-  // a) Get the current date and time using the RTC
   // b) Get the depth for water using ultrasonic sensor (Use NewPing library)
   // c) Get the current temperature
 
@@ -102,6 +108,7 @@ void initRelayBoard(int relayPinStart, int relayPorts){
 // Blinks LCD thrice
 void initLCD(int columns, int rows){
   lcd.begin(columns, rows);   // initialize the lcd for 16 chars 2 lines, turn on backlight
+  lcd.clear();
   // ------- Quick 3 blinks of backlight  -------------
   for(int i = 0; i< 3; i++)
   {
@@ -131,4 +138,172 @@ void inwardFlowSensor(){
 void outwardFlowSensor(){
   outwardFlowCount++;
 }
+
+// I2C scanner for debugging
+void i2cScanner(){
+  byte error, address;
+  int nDevices;
+
+  Serial.println("Scanning for I2C modules/controllers...");
+
+  nDevices = 0;
+  for(address = 1; address < 127; address++ ) 
+  {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+
+      nDevices++;
+    }
+    else if (error==4) 
+    {
+      Serial.print("Unknow error at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }    
+  }
+  if (nDevices == 0)
+    Serial.println("No I2C devices found\n");
+  else
+    Serial.println("done\n");
+   
+}
+
+// ** RTC Clock functions start
+// Convert normal decimal numbers to binary coded decimal
+byte decToBcd(byte val){
+  return( (val/10*16) + (val%10) );
+}
+
+// Convert binary coded decimal to normal decimal numbers
+byte bcdToDec(byte val){
+  return( (val/16*10) + (val%16) );
+}
+
+//Set the RTC clock time
+void setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year){
+  // sets time and date data to DS3231
+  Wire.beginTransmission(RTC_I2C_ADDRESS);
+  Wire.write(0); // set next input to start at the seconds register
+  Wire.write(decToBcd(second)); // set seconds
+  Wire.write(decToBcd(minute)); // set minutes
+  Wire.write(decToBcd(hour)); // set hours
+  Wire.write(decToBcd(dayOfWeek)); // set day of week (1=Sunday, 7=Saturday)
+  Wire.write(decToBcd(dayOfMonth)); // set date (1 to 31)
+  Wire.write(decToBcd(month)); // set month
+  Wire.write(decToBcd(year)); // set year (0 to 99)
+  Wire.endTransmission();
+}
+
+// Get the RTC clock time
+void readDS3231time(byte *second, byte *minute, byte *hour, byte *dayOfWeek, byte *dayOfMonth, byte *month, byte *year){
+  Wire.beginTransmission(RTC_I2C_ADDRESS);
+  Wire.write(0); // set DS3231 register pointer to 00h
+  Wire.endTransmission();
+  Wire.requestFrom(RTC_I2C_ADDRESS, 7);
+  // request seven bytes of data from DS3231 starting from register 00h
+  *second = bcdToDec(Wire.read() & 0x7f);
+  *minute = bcdToDec(Wire.read());
+  *hour = bcdToDec(Wire.read() & 0x3f);
+  *dayOfWeek = bcdToDec(Wire.read());
+  *dayOfMonth = bcdToDec(Wire.read());
+  *month = bcdToDec(Wire.read());
+  *year = bcdToDec(Wire.read());
+}
+
+// Format the time retrieved from RTC clock
+void displayTime(){
+  
+  byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
+  // retrieve data from DS3231
+  readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month,
+  &year);
+
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print(dayOfMonth);
+  lcd.print("-");
+  lcd.print(month);
+  lcd.print("-");
+  lcd.print(year);
+  lcd.print(" ");
+  lcd.print(hour);
+  lcd.print(":");
+  lcd.print(minute);
+  lcd.setCursor(0,1);
+  switch(dayOfWeek){
+    case 1:
+      lcd.print("Sunday");
+      break;
+    case 2:
+      lcd.print("Monday");
+      break;
+    case 3:
+      lcd.print("Tuesday");
+      break;
+    case 4:
+      lcd.print("Wednesday");
+      break;
+    case 5:
+      lcd.print("Thursday");
+      break;
+    case 6:
+      lcd.print("Friday");
+      break;
+    case 7:
+      lcd.print("Saturday");
+      break;
+  }
+  #if defined(DEV_MODE)
+    // send it to the serial monitor. convert the byte variable to a decimal number when displayed
+    Serial.print(hour, DEC);
+    Serial.print(":");
+    Serial.print(minute, DEC);
+    Serial.print(":");
+    Serial.print(second, DEC);
+    Serial.print(" ");
+    Serial.print(dayOfMonth, DEC);
+    Serial.print("/");
+    Serial.print(month, DEC);
+    Serial.print("/");
+    Serial.print(year, DEC);
+    Serial.print(" Day of week: ");
+    switch(dayOfWeek){
+      case 1:
+        Serial.println("Sunday");
+        break;
+      case 2:
+        Serial.println("Monday");
+        break;
+      case 3:
+        Serial.println("Tuesday");
+        break;
+      case 4:
+        Serial.println("Wednesday");
+        break;
+      case 5:
+        Serial.println("Thursday");
+        break;
+      case 6:
+        Serial.println("Friday");
+        break;
+      case 7:
+        Serial.println("Saturday");
+        break;
+    }
+  #endif
+}
+// ** RTC Clock functions end
+
 
