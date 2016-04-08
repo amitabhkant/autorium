@@ -4,21 +4,26 @@
 #include <NewPing.h>
 #include <NewTone.h>
 #include <OneWire.h>
-
+#include <DallasTemperature.h>
 
 LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+NewPing sonar(ULTRASONIC_TRIGGER_PIN, ULTRASONIC_ECHO_PIN, ultrasonicMaxDistance);
 
-int currentAutoriumState = 0;                 // Stores if any current action is being performed by Autorium: 0 - None; 1 - Water Extract;; 2 - Water Refill  
+int autoriumState = 0;                        // Current action is being performed by Autorium: 0 - None; 1 - Water Extract;; 2 - Water Refill  
+int waterLevel  = 0;                          // Water level in aquarium in centimeters
 volatile int inwardFlowCount = 0;             // Count from the inward flow sensor
 volatile int outwardFlowCount = 0;            // Count from the outward flow sensor
 
 void setup() {
+
   // Initialze relay pins
   pinMode(LIGHT_RELAY_PIN, OUTPUT);
   pinMode(EXTRACTOR_RELAY_PIN, OUTPUT);
   pinMode(FILTER_RELAY_PIN, OUTPUT);
   pinMode(HEATER_RELAY_PIN, OUTPUT);
   pinMode(AIR_PUMP_RELAY_PIN, OUTPUT);
+
+  initRelayBoard(31, 5);      // Led blink test on all active ports
 
   // Intialize all motors/relays to safe values
   digitalWrite(LIGHT_RELAY_PIN, HIGH);             // Set the light relay to high state (Switch on)
@@ -31,6 +36,15 @@ void setup() {
   pinMode(INWARD_FLOW_SOLENOID_PIN, OUTPUT);
   pinMode(OUTWARD_FLOW_SOLENOID_PIN, OUTPUT);
 
+  // Initialize Ultrasonic sensor pins
+  pinMode(ULTRASONIC_TRIGGER_PIN, OUTPUT);
+  pinMode(ULTRASONIC_ECHO_PIN, INPUT);
+
+  // Intialize LED Pins
+  pinMode(RED_LED_PIN, OUTPUT);
+  pinMode(YELLOW_LED_PIN, OUTPUT);
+  pinMode(GREEN_LED_PIN, OUTPUT);
+  
   // Close all solenoid valves
   digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);          // Set the in flow solenoid valve to closed (No water flow)
   digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);         // Set the out flow solenoid valve to closed (No water flow)
@@ -45,8 +59,10 @@ void setup() {
 
   Wire.begin();   // Initialize the I2C wire protocol
 
+  NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
+
   initLCD(16, 2);             // LCD test
-  
+
   #if defined(DEV_MODE)
     Serial.begin(9600);  // Initialise the serial port. This would be the same serial port used for programming the board.
     Serial.print("Starting Autorium version ");
@@ -54,10 +70,12 @@ void setup() {
     Serial.println("Debug Mode is ON");
     
     i2cScanner();         // Run the I2C scanner to check for peripherals
-  #endif
+  #endif  
 
-  initRelayBoard(31, 5);      // Led blink test on all active ports
-      
+  displayTime(); // Display current time on LCD and Serial port
+
+  waterLevel = sonar.ping() / US_ROUNDTRIP_CM;    // Get the intial water level
+ 
   // Max water level should be 5 cm less than Aquarium height
   if(maxWaterLevel > aquariumHeight - 5){
     lcd.clear();
@@ -68,21 +86,26 @@ void setup() {
     #if defined(DEV_MODE)
       Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
     #endif
+    errorTone();
   }
-
-  displayTime(); // Display current time
-
-  NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
-
 }
 
 void loop() {
   // STEPS:
   // b) Get the depth for water using ultrasonic sensor (Use NewPing library)
   // c) Get the current temperature
+  // d) Set alarm for 
 
 }
 
+// Sets out an audible error tone
+void errorTone(){
+  NewTone(TONE_PIN, 1321, 400); // Error tone
+  delay(600);
+  NewTone(TONE_PIN, 1321, 400); // Error tone
+  delay(600);
+  NewTone(TONE_PIN, 1321, 400); // Error tone
+}
 
 // Blinks all active ports of the relay board
 void initRelayBoard(int relayPinStart, int relayPorts){
