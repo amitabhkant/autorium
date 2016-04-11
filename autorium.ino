@@ -1,4 +1,5 @@
 #include "autorium.h"
+#include <avr/sleep.h>
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
 #include <NewPing.h>
@@ -15,6 +16,9 @@ volatile int inwardFlowCount = 0;             // Count from the inward flow sens
 volatile int outwardFlowCount = 0;            // Count from the outward flow sensor
 
 void setup() {
+
+  // Set the default LCD to LOW
+  digitalWrite(13, LOW);
 
   // Initialze relay pins
   pinMode(LIGHT_RELAY_PIN, OUTPUT);
@@ -59,7 +63,7 @@ void setup() {
 
   Wire.begin();   // Initialize the I2C wire protocol
 
-  NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
+  //NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
 
   initLCD(16, 2);             // LCD test
 
@@ -75,7 +79,7 @@ void setup() {
   displayTime(); // Display current time on LCD and Serial port
 
   waterLevel = sonar.ping() / US_ROUNDTRIP_CM;    // Get the intial water level
- 
+
   // Max water level should be 5 cm less than Aquarium height
   if(maxWaterLevel > aquariumHeight - 5){
     lcd.clear();
@@ -87,6 +91,11 @@ void setup() {
       Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
     #endif
     errorTone();
+    // Halt the execution of the code. See http://playground.arduino.cc/Learning/ArduinoSleepCode
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
+    cli();
+    sleep_enable();
+    sleep_cpu();
   }
 }
 
@@ -98,13 +107,23 @@ void loop() {
 
 }
 
-// Sets out an audible error tone
+// Sets out an audible/visible error using speaker and LED
 void errorTone(){
+  
   NewTone(TONE_PIN, 1321, 400); // Error tone
   delay(600);
   NewTone(TONE_PIN, 1321, 400); // Error tone
   delay(600);
   NewTone(TONE_PIN, 1321, 400); // Error tone
+  digitalWrite(RED_LED_PIN, HIGH);
+  delay(200);
+  digitalWrite(RED_LED_PIN, LOW);
+  delay(200);
+  digitalWrite(RED_LED_PIN, HIGH);
+  delay(200);
+  digitalWrite(RED_LED_PIN, LOW);
+  delay(200);
+  digitalWrite(RED_LED_PIN, HIGH);  
 }
 
 // Blinks all active ports of the relay board

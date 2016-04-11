@@ -6,7 +6,7 @@
 // LCD is available, comment out for disabling LCD code
 #define LCD_MODE
 
-// Relay ports
+// Relay port pins
 #define LIGHT_RELAY_PIN 31
 #define EXTRACTOR_RELAY_PIN 32
 #define FILTER_RELAY_PIN 33
