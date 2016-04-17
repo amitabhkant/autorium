@@ -1,23 +1,25 @@
 #include "autorium.h"
 #include <avr/sleep.h>
 #include <Wire.h>
-#include <LiquidCrystal_I2C.h>
 #include <NewPing.h>
 #include <NewTone.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
 
-LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+#if defined(TEMPERATURE_SENEOR_MODE)
+  #include <OneWire.h>
+  #include <DallasTemperature.h>
+#endif
+
+#if defined(LCD_MODE)
+  #include <LiquidCrystal_I2C.h>
+  LiquidCrystal_I2C lcd(LCD_I2C_ADDRESS, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
+#endif
+
 NewPing sonar(ULTRASONIC_TRIGGER_PIN, ULTRASONIC_ECHO_PIN, ultrasonicMaxDistance);
 
-int autoriumState = 0;                        // Current action is being performed by Autorium: 0 - None; 1 - Water Extract;; 2 - Water Refill  
-int waterLevel  = 0;                          // Water level in aquarium in centimeters
-volatile int inwardFlowCount = 0;             // Count from the inward flow sensor
-volatile int outwardFlowCount = 0;            // Count from the outward flow sensor
 
 void setup() {
 
-  // Set the default LCD to LOW
+  // Set the default on-baord LCD to LOW
   digitalWrite(13, LOW);
 
   // Initialze relay pins
@@ -63,9 +65,11 @@ void setup() {
 
   Wire.begin();   // Initialize the I2C wire protocol
 
-  //NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
+  NewTone(TONE_PIN, 262, 800); // Play a beep for startup.
 
-  initLCD(16, 2);             // LCD test
+  #if defined(LCD_MODE)
+    initLCD(16, 2);             // LCD test
+  #endif
 
   #if defined(DEV_MODE)
     Serial.begin(9600);  // Initialise the serial port. This would be the same serial port used for programming the board.
@@ -82,20 +86,20 @@ void setup() {
 
   // Max water level should be 5 cm less than Aquarium height
   if(maxWaterLevel > aquariumHeight - 5){
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print("Max wtr level >");
-    lcd.setCursor(0,1);
-    lcd.print("Aquarium height");
+    
+    #if defined(LCD_MODE)
+      lcd.clear();
+      lcd.setCursor(0,0);
+      lcd.print("Max wtr level >");
+      lcd.setCursor(0,1);
+      lcd.print("Aquarium height");
+    #endif
+    
     #if defined(DEV_MODE)
       Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
     #endif
-    errorTone();
-    // Halt the execution of the code. See http://playground.arduino.cc/Learning/ArduinoSleepCode
-    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
-    cli();
-    sleep_enable();
-    sleep_cpu();
+    
+    errorMode(1);
   }
 }
 
@@ -103,18 +107,21 @@ void loop() {
   // STEPS:
   // b) Get the depth for water using ultrasonic sensor (Use NewPing library)
   // c) Get the current temperature
-  // d) Set alarm for 
+  // d) Set alarm for next run
+
+  // Get the current depth of water  
 
 }
 
-// Sets out an audible/visible error using speaker and LED
-void errorTone(){
+void errorMode(int criticalError){
   
   NewTone(TONE_PIN, 1321, 400); // Error tone
   delay(600);
   NewTone(TONE_PIN, 1321, 400); // Error tone
   delay(600);
   NewTone(TONE_PIN, 1321, 400); // Error tone
+
+  //Blink Red LED thrice
   digitalWrite(RED_LED_PIN, HIGH);
   delay(200);
   digitalWrite(RED_LED_PIN, LOW);
@@ -123,10 +130,18 @@ void errorTone(){
   delay(200);
   digitalWrite(RED_LED_PIN, LOW);
   delay(200);
-  digitalWrite(RED_LED_PIN, HIGH);  
+  digitalWrite(RED_LED_PIN, HIGH);
+
+  if(criticalError == 1){
+    // Halt the execution of the code. See http://playground.arduino.cc/Learning/ArduinoSleepCode
+    set_sleep_mode(SLEEP_MODE_PWR_DOWN);  
+    cli();
+    sleep_enable();
+    sleep_cpu();  
+  }
 }
 
-// Blinks all active ports of the relay board
+
 void initRelayBoard(int relayPinStart, int relayPorts){
   
   for(int iCounter=relayPinStart;iCounter < relayPinStart + relayPorts;iCounter++){
@@ -147,31 +162,33 @@ void initRelayBoard(int relayPinStart, int relayPorts){
   
 }
 
-// Blinks LCD thrice
-void initLCD(int columns, int rows){
-  lcd.begin(columns, rows);   // initialize the lcd for 16 chars 2 lines, turn on backlight
-  lcd.clear();
-  // ------- Quick 3 blinks of backlight  -------------
-  for(int i = 0; i< 3; i++)
-  {
-    lcd.backlight();
-    delay(250);
-    lcd.noBacklight();
-    delay(250);
-  }
-  lcd.setBacklight(LOW);
-  lcd.backlight(); // finish with backlight on  
-  //lcd.setContrast(HIGH);
 
-  //-------- Write characters on the display ------------------
-  // NOTE: Cursor Position: (CHAR, LINE) start at 0  
-  lcd.setCursor(0,0); //Start at character 0 on line 0
-  lcd.print("Autorium version ");
-  lcd.setCursor(0,1);
-  lcd.print(AUTORIUM_VERSION);
+void initLCD(int columns, int rows){
+  #if defined(LCD_MODE)
+    lcd.begin(columns, rows);   // initialize the lcd for 16 chars 2 lines, turn on backlight
+    lcd.clear();
+    // ------- Quick 3 blinks of backlight  -------------
+    for(int i = 0; i< 3; i++)
+    {
+      lcd.backlight();
+      delay(250);
+      lcd.noBacklight();
+      delay(250);
+    }
+    lcd.setBacklight(LOW);
+    lcd.backlight(); // finish with backlight on  
+    //lcd.setContrast(HIGH);
+  
+    //-------- Write characters on the display ------------------
+    // NOTE: Cursor Position: (CHAR, LINE) start at 0  
+    lcd.setCursor(0,0); //Start at character 0 on line 0
+    lcd.print("Autorium version ");
+    lcd.setCursor(0,1);
+    lcd.print(AUTORIUM_VERSION);
+  #endif
 }
 
-// Callback routine for Inward Flow sensor
+
 void inwardFlowSensor(){
   inwardFlowCount++;
 }
@@ -272,41 +289,44 @@ void displayTime(){
   readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month,
   &year);
 
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print(dayOfMonth);
-  lcd.print("-");
-  lcd.print(month);
-  lcd.print("-");
-  lcd.print(year);
-  lcd.print(" ");
-  lcd.print(hour);
-  lcd.print(":");
-  lcd.print(minute);
-  lcd.setCursor(0,1);
-  switch(dayOfWeek){
-    case 1:
-      lcd.print("Sunday");
-      break;
-    case 2:
-      lcd.print("Monday");
-      break;
-    case 3:
-      lcd.print("Tuesday");
-      break;
-    case 4:
-      lcd.print("Wednesday");
-      break;
-    case 5:
-      lcd.print("Thursday");
-      break;
-    case 6:
-      lcd.print("Friday");
-      break;
-    case 7:
-      lcd.print("Saturday");
-      break;
-  }
+  #if defined(LCD_MODE)
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print(dayOfMonth);
+    lcd.print("-");
+    lcd.print(month);
+    lcd.print("-");
+    lcd.print(year);
+    lcd.print(" ");
+    lcd.print(hour);
+    lcd.print(":");
+    lcd.print(minute);
+    lcd.setCursor(0,1);
+    switch(dayOfWeek){
+      case 1:
+        lcd.print("Sunday");
+        break;
+      case 2:
+        lcd.print("Monday");
+        break;
+      case 3:
+        lcd.print("Tuesday");
+        break;
+      case 4:
+        lcd.print("Wednesday");
+        break;
+      case 5:
+        lcd.print("Thursday");
+        break;
+      case 6:
+        lcd.print("Friday");
+        break;
+      case 7:
+        lcd.print("Saturday");
+        break;
+    }
+  #endif
+  
   #if defined(DEV_MODE)
     // send it to the serial monitor. convert the byte variable to a decimal number when displayed
     Serial.print(hour, DEC);

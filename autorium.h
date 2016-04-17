@@ -1,10 +1,13 @@
- #define AUTORIUM_VERSION 0.2
+#define AUTORIUM_VERSION 0.2
 
 // Development mode; comment out for disabling debug messages on serial monitor
 #define DEV_MODE
 
 // LCD is available, comment out for disabling LCD code
 #define LCD_MODE
+
+// Temperature sensor is available, comment out for disbaling temperature sensor code
+#define TEMPERATURE_SENEOR_MODE
 
 // Relay port pins
 #define LIGHT_RELAY_PIN 31
@@ -37,7 +40,7 @@
 #define ULTRASONIC_TRIGGER_PIN  24  // Pin tied to trigger pin on the ultrasonic sensor.
 #define ULTRASONIC_ECHO_PIN     25  // Pin tied to echo pin on the ultrasonic sensor.
 
-// ** Any definitions below this point might be changed into varaibles later, so they are following camel case notation **//
+//** Any definitions below this point might be changed into varaibles later, so they are following camel case notation **//
 
 #define ultrasonicMaxDistance 400 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
@@ -50,5 +53,43 @@
 // Define water level in centimeters
 #define maxWaterLevel 60
 #define minWaterLevel 10
+
+//** Variable defintions **//
+int autoriumCurrentState = 0;                 // Current action being performed by Autorium: 0 - None; 1 - Water Extract; 2 - Water Refill
+int autoriumOperationMode = 0;                // Operation mode for Autrium: 0 - Time based; 1 - Based on sensors input (Not implemented); 2 - Combination 
+int waterLevel  = 0;                          // Water level in aquarium in centimeters
+volatile int inwardFlowCount = 0;             // Count from the inward flow sensor
+volatile int outwardFlowCount = 0;            // Count from the outward flow sensor
+
+//** Function Definitions
+
+// Sets out an audible/visible error using speaker and LED
+// @Parameters    :
+// criticalError  : 0 -> Normal error just beep and blink red led || 1 -> Critical error halt code execution in addition to mode 0
+void errorMode(int criticalError);
+
+// Blinks LED's of all active relay ports on the relay board
+// @Parameters    :
+// relayPinStart  : First rellay pin used for the relay trigger
+// relayPorts     : No of relay ports being used. The pin numbers will go in increasing order 
+void initRelayBoard(int relayPinStart, int relayPorts);
+
+// Blinks LCD thrice, and prints out the Autrium version
+// @Parameters    :
+// columns        : No of columns in the lcd 
+// rows           : No of rows in the lcd
+void initLCD(int columns, int rows);
+
+// Callback routine for Inward Flow sensor
+void inwardFlowSensor(void);
+
+// Callback routine for Outward Flow sensor
+void outwardFlowSensor(void);
+
+// I2C scanner for debugging
+void i2cScanner(void);
+
+
+
 
 
