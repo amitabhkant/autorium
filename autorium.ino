@@ -4,9 +4,11 @@
 #include <NewPing.h>
 #include <NewTone.h>
 
-#if defined(TEMPERATURE_SENEOR_MODE)
+#if defined(TEMPERATURE_SENSOR_MODE)
   #include <OneWire.h>
-  #include <DallasTemperature.h>
+  #include <DallasTemperature.h> 
+  OneWire oneWire(TEMPERATURE_SENSOR_PIN);    // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs) 
+  DallasTemperature dtSensors(&oneWire);        // Pass our oneWire reference to Dallas Temperature.
 #endif
 
 #if defined(LCD_MODE)
@@ -16,8 +18,7 @@
 
 NewPing sonar(ULTRASONIC_TRIGGER_PIN, ULTRASONIC_ECHO_PIN, ultrasonicMaxDistance);
 
-
-void setup() {
+void setup(void) {
 
   // Set the default on-baord LCD to LOW
   digitalWrite(13, LOW);
@@ -71,18 +72,18 @@ void setup() {
     initLCD(16, 2);             // LCD test
   #endif
 
-  #if defined(DEV_MODE)
-    Serial.begin(9600);  // Initialise the serial port. This would be the same serial port used for programming the board.
-    Serial.print("Starting Autorium version ");
-    Serial.println(AUTORIUM_VERSION);
-    Serial.println("Debug Mode is ON");
-    
-    i2cScanner();         // Run the I2C scanner to check for peripherals
-  #endif  
+  Serial.begin(9600);  // Initialise the serial port. This would be the same serial port used for programming the board.
+  Serial.print("Starting Autorium version ");
+  Serial.println(AUTORIUM_VERSION);
+  Serial.println("Debug Mode is ON");
+  
+  i2cScanner();         // Run the I2C scanner to check for peripherals
 
   displayTime(); // Display current time on LCD and Serial port
 
-  waterLevel = sonar.ping() / US_ROUNDTRIP_CM;    // Get the intial water level
+  dtSensors.begin(); // Dallas temperature IC Default 9 bit. If you have troubles consider upping it 12. Ups the delay giving the IC more time to process the temperature measurement
+
+  waterLevel = getWaterLevel();    // Get the intial water level
 
   // Max water level should be 5 cm less than Aquarium height
   if(maxWaterLevel > aquariumHeight - 5){
@@ -95,22 +96,79 @@ void setup() {
       lcd.print("Aquarium height");
     #endif
     
-    #if defined(DEV_MODE)
-      Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
-    #endif
+    Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
     
     errorMode(1);
   }
 }
 
-void loop() {
+void loop(void) {
   // STEPS:
-  // b) Get the depth for water using ultrasonic sensor (Use NewPing library)
+  
   // c) Get the current temperature
   // d) Set alarm for next run
 
-  // Get the current depth of water  
+  // Get the current level of water  
+  waterLevel = getWaterLevel();
 
+  // Check for the temperature.
+  temperatureCheck();
+
+  if(autoriumOperationMode=0){
+    // 
+  }
+}
+
+void temperatureCheck(void){
+  
+  float temperatureValue;         // Stores the temperature in celcius
+  
+  // call sensors.requestTemperatures() to issue a global temperature 
+  // request to all devices on the bus
+  Serial.print("Requesting temperatures...");
+  dtSensors.requestTemperatures(); // Send the command to get temperatures
+  Serial.println("DONE");
+  
+  Serial.print("Temperature for Aquarium is: ");
+  temperatureValue = dtSensors.getTempCByIndex(0);      // You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+  Serial.println(temperatureValue); 
+
+  if(temperatureValue < minTemperature){
+    // switch on the heater
+    digitalWrite(HEATER_RELAY_PIN, HIGH);
+  }
+  else{
+    // switch off the heater
+    digitalWrite(HEATER_RELAY_PIN, LOW);    
+  }
+    
+}
+
+int getWaterLevel(void){
+  unsigned int echoTime;                            // Time difference returned by ultrasonic sensor in microseconds
+  int waterDistance;                                // Distance of water from ultrasonic sensor
+  int waterLevelFromBottom;                         // Water Level from bottom, calculated using aquarium height
+  
+  echoTime  = sonar.ping_median(5);                 // Ultrasonic sensor can return false values. Safer to use this to get an approximate value
+  waterDistance = sonar.convert_cm(echoTime);       // Convert the microseconds to centimeters
+  waterLevelFromBottom = aquariumHeight - waterDistance;
+
+  Serial.print("Echo time from ultrsonic sensor -> ");
+  Serial.println(echoTime);
+  Serial.print("Distance of water from ultrasonic sensor -> ");
+  Serial.println(waterDistance);
+  Serial.print("Height of water from bottom of aquarium -> ");
+  Serial.println(waterLevelFromBottom);     
+
+  #if defined(LCD_MODE)
+    lcd.clear();
+    lcd.setCursor(0,0);
+    lcd.print("Water level >");
+    lcd.setCursor(0,1);
+    lcd.print(waterLevelFromBottom);  
+  #endif
+
+  return waterLevelFromBottom;  
 }
 
 void errorMode(int criticalError){
@@ -140,7 +198,6 @@ void errorMode(int criticalError){
     sleep_cpu();  
   }
 }
-
 
 void initRelayBoard(int relayPinStart, int relayPorts){
   
@@ -189,17 +246,17 @@ void initLCD(int columns, int rows){
 }
 
 
-void inwardFlowSensor(){
+void inwardFlowSensor(void){
   inwardFlowCount++;
 }
 
 // Callback routine for Outward Flow sensor
-void outwardFlowSensor(){
+void outwardFlowSensor(void){
   outwardFlowCount++;
 }
 
 // I2C scanner for debugging
-void i2cScanner(){
+void i2cScanner(void){
   byte error, address;
   int nDevices;
 
@@ -282,7 +339,7 @@ void readDS3231time(byte *second, byte *minute, byte *hour, byte *dayOfWeek, byt
 }
 
 // Format the time retrieved from RTC clock
-void displayTime(){
+void displayTime(void){
   
   byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
   // retrieve data from DS3231
@@ -326,45 +383,43 @@ void displayTime(){
         break;
     }
   #endif
-  
-  #if defined(DEV_MODE)
-    // send it to the serial monitor. convert the byte variable to a decimal number when displayed
-    Serial.print(hour, DEC);
-    Serial.print(":");
-    Serial.print(minute, DEC);
-    Serial.print(":");
-    Serial.print(second, DEC);
-    Serial.print(" ");
-    Serial.print(dayOfMonth, DEC);
-    Serial.print("/");
-    Serial.print(month, DEC);
-    Serial.print("/");
-    Serial.print(year, DEC);
-    Serial.print(" Day of week: ");
-    switch(dayOfWeek){
-      case 1:
-        Serial.println("Sunday");
-        break;
-      case 2:
-        Serial.println("Monday");
-        break;
-      case 3:
-        Serial.println("Tuesday");
-        break;
-      case 4:
-        Serial.println("Wednesday");
-        break;
-      case 5:
-        Serial.println("Thursday");
-        break;
-      case 6:
-        Serial.println("Friday");
-        break;
-      case 7:
-        Serial.println("Saturday");
-        break;
-    }
-  #endif
+
+  // send it to the serial monitor. convert the byte variable to a decimal number when displayed
+  Serial.print(hour, DEC);
+  Serial.print(":");
+  Serial.print(minute, DEC);
+  Serial.print(":");
+  Serial.print(second, DEC);
+  Serial.print(" ");
+  Serial.print(dayOfMonth, DEC);
+  Serial.print("/");
+  Serial.print(month, DEC);
+  Serial.print("/");
+  Serial.print(year, DEC);
+  Serial.print(" Day of week: ");
+  switch(dayOfWeek){
+    case 1:
+      Serial.println("Sunday");
+      break;
+    case 2:
+      Serial.println("Monday");
+      break;
+    case 3:
+      Serial.println("Tuesday");
+      break;
+    case 4:
+      Serial.println("Wednesday");
+      break;
+    case 5:
+      Serial.println("Thursday");
+      break;
+    case 6:
+      Serial.println("Friday");
+      break;
+    case 7:
+      Serial.println("Saturday");
+      break;
+  }
 }
 // ** RTC Clock functions end
 
