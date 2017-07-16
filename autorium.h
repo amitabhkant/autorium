@@ -20,8 +20,8 @@
 
 
 // Flow sensor pins. These are attached to interrupt pin
-#define INWARD_FLOW_SENSOR_PIN 18
-#define OUTWARD_FLOW_SENSOR_PIN 19
+#define INWARD_FLOW_SENSOR_PIN 2
+#define OUTWARD_FLOW_SENSOR_PIN 3
 
 // Solenoid valve pins 
 #define INWARD_FLOW_SOLENOID_PIN 4
@@ -43,17 +43,18 @@
 
 #define ultrasonicMaxDistance 400 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 
+//** Variable defintions **//
+
 // Define your aquarium dimensions in centimeters
-#define aquariumHeight 70      // Z Axis
-#define aquariumLength 130      // Y Axis
-#define aquariumWidth 45        // X Axis
-#define aquariumShape 0         // 0 - Rectangle/Cube; 1 - Circular/Cylindrical. Can be used to calculate water volume
+int aquariumHeight = 30; //70      // Z Axis
+int aquariumLength = 15; //130      // Y Axis
+int aquariumWidth = 20;  //45        // X Axis
+int aquariumShape = 0;         // 0 - Rectangle/Cube; 1 - Circular/Cylindrical. Can be used to calculate water volume
 
 // Define water level in centimeters
-#define maxWaterLevel 60
-#define minWaterLevel 10
+int maxWaterLevel = 25;
+int minWaterLevel = 10;
 
-//** Variable defintions **//
 int autoriumCurrentState = 0;                 // Current action being performed by Autorium: 0 - None; 1 - Water Extract; 2 - Water Refill
 int autoriumOperationMode = 0;                // Operation mode for Autrium: 0 - Simple extraction and refill;1 - Time based; 2 - Based on sensors input (Not implemented); 3 - Combination of 1 & 2 
 

@@ -98,7 +98,7 @@ void setup(void) {
     
     Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
     
-    errorMode(1);
+    errorMode(0);
   }
 }
 
@@ -107,7 +107,10 @@ void loop(void) {
   
   // c) Get the current temperature
   // d) Set alarm for next run
-
+  
+  Serial.println("");
+  Serial.println("**Start of Run**");
+  
   // Get the current level of water  
   waterLevel = getWaterLevel();
 
@@ -115,8 +118,26 @@ void loop(void) {
   temperatureCheck();
 
   if(autoriumOperationMode=0){
-    // 
+    // This is a simple extraction and refill process
+
+    if (waterLevel < maxWaterLevel){
+       // We will need to refill water
+       digitalWrite(INWARD_FLOW_SOLENOID_PIN, HIGH);
+       autoriumCurrentState = 2;
+    }
+    else{
+      // Stop the refill process
+      digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);
+      autoriumCurrentState = 0;
+    }
+
+    Serial.print("Flow sensor value >");
+    Serial.println(inwardFlowCount);
+    
   }
+
+  Serial.println("**End of Run**");
+  Serial.println("");
 }
 
 void temperatureCheck(void){
