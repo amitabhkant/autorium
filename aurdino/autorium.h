@@ -68,9 +68,9 @@ volatile int outwardFlowCount = 0;            // Count from the outward flow sen
 
 //** Function Definitions
 
-// Sets out an audible/visible error using speaker and LED
+// Sets out an audible/visible error using speaker and LCD
 // @Parameters    :
-//  criticalError  : 0 -> Normal error just beep and blink red led || 1 -> Critical error halt code execution in addition to mode 0
+// criticalError  : 0 -> Normal error just beep and blink red led || 1 -> Critical error halt code execution in addition to mode 0
 void errorMode(int criticalError);
 
 // Blinks LED's of all active relay ports on the relay board
