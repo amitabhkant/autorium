@@ -6,7 +6,9 @@ Created by: Amitabh Kant
 Date: 22nd Nov 2017
 */
 
-// Include the constant definition file
+// Include the constant/variable definition file
 require_once('autorium.constants.php');
+
+
 
 ?>

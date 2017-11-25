@@ -46,26 +46,31 @@ define('TEMPERATURE_SENSOR_PIN',23);
 // Maximum distance we want to ping for (in centimeters). Maximum sensor distance is rated at 400-500cm.
 define('ultrasonicMaxDistance',400);
 
-// Variable defintions 
+// Variable defintions which will be over-ridden from local db values post setup/inialization
+
+$autoriumSetup = 0;         # If there is any problem in the setup, or some essential DB files are missing, 
+                            # this variable will be set to 1, which will lead to setup/intialisation script
+                            # being called.
 
 // Aquarium dimensions in centimeters
-aquariumWidth = 20;        # X Axis [45]
-aquariumLength = 15;       # Y Axis [130]
-aquariumHeight = 30;       # Z Axis [70]
-aquariumShape = 0;         # 0 - Rectangle/Cube; 1 - Circular/Cylindrical. Can be used to calculate water volume
- 
-maxWaterLevel = 25;         # Max Water level in centimeters
-minWaterLevel = 10;         # Min Water level in centimeters
+$aquariumShape = 0;         # 0 - Rectangle/Cube; 1 - Circular/Cylindrical. For calculating water volume
+$aquariumWidth = 20;        # X Axis [45]
+$aquariumLength = 15;       # Y Axis [130]
+$aquariumHeight = 30;       # Z Axis [70]
+$aquariumDiameter = 0;      # Diameter in case of Circular/Cylindrical shape
 
-autoriumCurrentState = 0;   # Current action being performed by Autorium: 0 - None; 1 - Water Extract; 2 - Water Refill
-autoriumOperationMode = 0;  # Operation mode for Autrium: 0 - Simple extraction and refill;1 - Time based; 2 - Based on sensors input (Not implemented); 3 - Combination of 1 & 2 
+$maxWaterLevel = 25;         # Max Water level in centimeters
+$minWaterLevel = 10;         # Min Water level in centimeters
 
-waterLevel  = 0;            # Required Water level of aquarium in centimeters. This stores the water level from the bottom
+$autoriumCurrentState = 0;   # Current action being performed by Autorium: 0 - None; 1 - Water Extract; 2 - Water Refill
+$autoriumOperationMode = 0;  # Operation mode for Autrium: 0 - Simple extraction and refill;1 - Time based; 2 - Based on sensors input (Not implemented); 3 - Combination of 1 & 2 
 
-minTemperature;             # Temperature at which the relay for heater will switch on
-maxTemperature;             # Temperature at which the relay for heater will switch off
+$waterLevel  = 0;            # Required Water level of aquarium in centimeters. This stores the water level from the bottom
 
-inwardFlowCount = 0;        # Count from the inward flow sensor
-outwardFlowCount = 0;       # Count from the outward flow sensor
+$minTemperature = 20;        # Temperature in degree celcius at which the relay for heater will switch on
+$maxTemperature = 26;        # Temperature in degree celcius at which the relay for heater will switch off
+
+$inwardFlowCount = 0;        # Count from the inward flow sensor
+$outwardFlowCount = 0;       # Count from the outward flow sensor
 
 ?>
