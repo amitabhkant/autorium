@@ -7,6 +7,7 @@ if(file_exists('autorium.settings.db')){
     $settings_result = $settings_db->query($settings_query);
     $settings_row        = $settings_result->fetchArray(); 
     if(count($settings_row)>0){
+        $autoriumId = $settings_row['autoriumId']; 
         $aquariumShape = $settings_row['aquariumShape']; 
         $aquariumWidth = $settings_row['aquariumWidth']; 
         $aquariumLength = $settings_row['aquariumLength']; 
@@ -21,13 +22,14 @@ if(file_exists('autorium.settings.db')){
         $maxTemperature = $settings_row['maxTemperature'];
     }
     else{
-        $autoriumSetup = 1;
+        // We cannot read data from the settings database, set the initialisation flag to 1
+        $autoriumInit = 1;  
     }
     $settings_db->close();
     
 } else{
     // We do not have the settings file. Need to run the setup script.
-
+    $autoriumInit = 1;
 }
 
 ?>

@@ -48,9 +48,12 @@ define('ultrasonicMaxDistance',400);
 
 // Variable defintions which will be over-ridden from local db values post setup/inialization
 
-$autoriumSetup = 0;         # If there is any problem in the setup, or some essential DB files are missing, 
+$autoriumId = '';           # ID returned post registration from the Autorium server
+
+$autoriumInit = 0;          # If there is any problem in the setup, or some essential DB files are missing, 
                             # this variable will be set to 1, which will lead to setup/intialisation script
-                            # being called.
+                            # being called. After the init, this value would be set to 2. Once all the
+                            # settings have been done, this will be set back to 0
 
 // Aquarium dimensions in centimeters
 $aquariumShape = 0;         # 0 - Rectangle/Cube; 1 - Circular/Cylindrical. For calculating water volume
