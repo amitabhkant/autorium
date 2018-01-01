@@ -15,7 +15,6 @@ if(file_exists('autorium.settings.db')){
         $aquariumDiameter = $settings_row['aquariumDiameter']; 
         $maxWaterLevel = $settings_row['maxWaterLevel']; 
         $minWaterLevel = $settings_row['minWaterLevel'];
-        $autoriumCurrentState = $settings_row['autoriumCurrentState'];
         $autoriumOperationMode = $settings_row['autoriumOperationMode'];
         $waterLevel  = $settings_row['waterLevel'];
         $minTemperature = $settings_row['minTemperature']; 
@@ -29,6 +28,7 @@ if(file_exists('autorium.settings.db')){
     
 } else{
     // We do not have the settings file. Need to run the setup script.
+    file_put_contents('autorium.run.log',"Settings DB not found. Setting init flag\n",FILE_APPEND);
     $autoriumInit = 1;
 }
 

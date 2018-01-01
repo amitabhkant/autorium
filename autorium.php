@@ -18,6 +18,10 @@ if($autoriumInit==1){
     require_once('autorium.init.php');
 }
 
+// Check if the Init flag is set to 0, otherwise exit.
+if($autoriumInit!=0){
+    file_put_contents('autorium.run.log',"Basic initialisation of Autorium not complete. Exiting App\n",FILE_APPEND);
+}
 
-
+// Initialise the pins of RPI
 ?>
