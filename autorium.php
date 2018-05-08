@@ -24,4 +24,5 @@ if($autoriumInit!=0){
 }
 
 // Initialise the pins of RPI
+
 ?>
