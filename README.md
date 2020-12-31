@@ -1,4 +1,3 @@
 # autorium
-Automation for freshwater aquariums using Raspberry Pi 3 
-Use of Aurdino has been discontinued as it is easier to transfer data using Bluetooth and network.
-Aurdino might be used in a extended version for increasing the input output capabilities of the system.
+Automation for freshwater aquariums using Arduino Mega 2650 or preferably Teensy 4.1 as the number of interrupts required exceeds what is available in MEga
+For network/bluetooth connectivity, using ESP32
