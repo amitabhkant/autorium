@@ -1,8 +1,21 @@
 #include "autorium.h"
-#include <avr/sleep.h>
-#include <Wire.h>
-#include <NewPing.h>
-#include <NewTone.h>
+//#include <EEPROM.h>
+//#include <avr/sleep.h>
+//#include <Wire.h>
+//#include <NewPing.h>
+//#include <NewTone.h>
+
+  /*
+   * TODO:
+   *      Store operation mode (extraction or filling) in EEPROM to overcome any reboots due to power failure [DONE]
+   *      Water level sensing may need to be averaged out more for stable values [DONE - Values increase to 15 iterations]
+   *      Convert the flow counter from int to long [DONE - Test if its working]
+   *      Set RTC Clock timing and change battery
+   *      Connect Water Extractor Pump, Temperature Sensor, Heater, Light, Air Pump & Filter Pump to Relay
+   *      Integrate ESP82xx chip for wifi connectivity
+   *      Relay test does no longer need to switch on and off all the ports
+   *      
+  */
 
 #if defined(TEMPERATURE_SENSOR_MODE)
   #include <OneWire.h>
@@ -23,25 +36,66 @@ void setup(void) {
   // Set the default on-baord LCD to LOW
   digitalWrite(13, LOW);
 
-  // Initialze relay pins
-  pinMode(LIGHT_RELAY_PIN, OUTPUT);
-  pinMode(EXTRACTOR_RELAY_PIN, OUTPUT);
-  pinMode(FILTER_RELAY_PIN, OUTPUT);
-  pinMode(HEATER_RELAY_PIN, OUTPUT);
-  pinMode(AIR_PUMP_RELAY_PIN, OUTPUT);
+  int arrayCount;   // variable to store array count
 
-  initRelayBoard(31, 5);      // Led blink test on all active ports
+  // initialize light relay pins
+  arrayCount = sizeof(arLightRelayPin) / sizeof(arLightRelayPin[0]);
+  for (int thisPin = 0; thisPin < arrayCount; thisPin++) {
+    pinMode(arLightRelayPin[thisPin], OUTPUT);
+    digitalWrite(arLightRelayPin[thisPin], LOW); // switch off all the lights
+  }
+
+  // initialize air pump relay pins
+  int arrayCount = sizeof(arAirPumpRelayPin) / sizeof(arAirPumpRelayPin[0]);
+  for (int thisPin = 0; thisPin < arrayCount; thisPin++) {
+    pinMode(arAirPumpRelayPin[thisPin], OUTPUT);
+    digitalWrite(arAirPumpRelayPin[thisPin], LOW); // switch off air pumps
+  }
+
+  // initialize heater relay pins
+  int arrayCount = sizeof(arHeaterRelayPin) / sizeof(arHeaterRelayPin[0]);
+  for (int thisPin = 0; thisPin < arrayCount; thisPin++) {
+    pinMode(arHeaterRelayPin[thisPin], OUTPUT);
+    digitalWrite(arHeaterRelayPin[thisPin], LOW); // switch off heaters
+  }
+
+  // initialize solenoid relay pins
+  int arrayCount = sizeof(arSolenoidRelayPin) / sizeof(arSolenoidRelayPin[0]);
+  for (int thisPin = 0; thisPin < arrayCount; thisPin++) {
+    pinMode(arSolenoidRelayPin[thisPin], OUTPUT);
+    digitalWrite(arSolenoidRelayPin[thisPin], LOW); // switch off solenoid valves
+  }
+
+  // initialize flow sensor pins
+  int arrayCount = sizeof(arFlowSensorPin) / sizeof(arFlowSensorPin[0]);
+  for (int thisPin = 0; thisPin < arrayCount; thisPin++) {
+    pinMode(arFlowSensorPin[thisPin], INPUT);
+    // attachInterrupt requires callback function, which should be unique to each interrupt
+    //attachInterrupt(digitalPinToInterrupt(arFlowSensorPin[thisPin], inwardFlowSensor, RISING);
+  }
+  
+  // switch off both the motor pumps
+  pinMode(aqPumpRelayPin, OUTPUT);
+  digitalWrite(aqPumpRelayPin, LOW); // switch off aquarium pump
+  pinMode(aqPumpRelayPin, OUTPUT);
+  digitalWrite(flPumpRelayPin, LOW); // switch off filter pump
+
+
+
+
+  
+  //initRelayBoard(31, 8);      // Led blink test on all active ports
 
   // Intialize all motors/relays to safe values
-  digitalWrite(LIGHT_RELAY_PIN, HIGH);             // Set the light relay to high state (Switch on)
+  digitalWrite(LIGHT_RELAY_PIN, LOW);             // Set the light relay to high state (Switch on)
   digitalWrite(EXTRACTOR_RELAY_PIN, LOW);          // Set the extractor motor relay to low state (Switch off)
   digitalWrite(FILTER_RELAY_PIN, LOW);             // Set the filter relay to low state (Switch off)
   digitalWrite(HEATER_RELAY_PIN, LOW);             // Set the heater relay to low state (Switch off)
-  digitalWrite(AIR_PUMP_RELAY_PIN, HIGH);           // Set the Air Pump relay to high state (Switch on)
+  digitalWrite(AIR_PUMP_RELAY_PIN, LOW);           // Set the Air Pump relay to high state (Switch on)
 
-  // Initialize solenoid pins
-  pinMode(INWARD_FLOW_SOLENOID_PIN, OUTPUT);
-  pinMode(OUTWARD_FLOW_SOLENOID_PIN, OUTPUT);
+  // Close all solenoid valves
+  digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);          // Set the in flow solenoid valve to closed (No water flow)
+  digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);         // Set the out flow solenoid valve to closed (No water flow)
 
   // Initialize Ultrasonic sensor pins
   pinMode(ULTRASONIC_TRIGGER_PIN, OUTPUT);
@@ -52,10 +106,6 @@ void setup(void) {
   pinMode(YELLOW_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
   
-  // Close all solenoid valves
-  digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);          // Set the in flow solenoid valve to closed (No water flow)
-  digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);         // Set the out flow solenoid valve to closed (No water flow)
-
   // Initialize flow sensor pins
   pinMode(INWARD_FLOW_SENSOR_PIN, INPUT);
   pinMode(OUTWARD_FLOW_SENSOR_PIN, INPUT);
@@ -83,60 +133,143 @@ void setup(void) {
 
   dtSensors.begin(); // Dallas temperature IC Default 9 bit. If you have troubles consider upping it 12. Ups the delay giving the IC more time to process the temperature measurement
 
-  waterLevel = getWaterLevel();    // Get the intial water level
 
+  waterLevel = getWaterLevel(50);    // Get the intial water level
+  Serial.print("Water Level: ");
+  Serial.println(waterLevel);
+/*
   // Max water level should be 5 cm less than Aquarium height
   if(maxWaterLevel > aquariumHeight - 5){
     
     #if defined(LCD_MODE)
       lcd.clear();
       lcd.setCursor(0,0);
-      lcd.print("Max wtr level >");
+      lcd.print("Max wtr level: ");
       lcd.setCursor(0,1);
       lcd.print("Aquarium height");
     #endif
     
-    Serial.println("!! => Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight");
+    Serial.println("!!  Max water level is greater than the maximum aquarium depth. Please ensure that the maxWaterLevel is 5 cm less than aquariumHeight. !!");
     
     errorMode(0);
   }
+*/
+  //EEPROM.update(0, 2);
+  // Check what was the last state of Autorium
+  //autoriumCurrentState = EEPROM.read(0);
+  autoriumCurrentState = 2;
+  
+  if(autoriumCurrentState==1 || autoriumCurrentState==3){
+    
+    // Start the extraction process
+    Serial.println("Starting extraction process");
+    digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);
+    digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, HIGH);
+    digitalWrite(EXTRACTOR_RELAY_PIN, HIGH);
+    autoriumState = 1;
+    EEPROM.update(0, autoriumCurrentState);  // Store the current operation in memory for later use 
+    digitalWrite(FILTER_RELAY_PIN, LOW); // Stop the filter  
+     
+  }
+  
+  if(autoriumCurrentState==2 || autoriumCurrentState==3){
+    
+    // Start the refill process
+    Serial.println("Starting refill process");
+    digitalWrite(INWARD_FLOW_SOLENOID_PIN, HIGH);
+    digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);
+    digitalWrite(EXTRACTOR_RELAY_PIN, LOW);
+    autoriumState = 2;
+    EEPROM.update(0, autoriumCurrentState);  // Store the current operation in memory for later use
+       
+  }
+
+
+  Serial.println("Setup complete");
+  
 }
 
 void loop(void) {
-  // STEPS:
-  
-  // c) Get the current temperature
-  // d) Set alarm for next run
-  
+    
   Serial.println("");
-  Serial.println("**Start of Run**");
+  Serial.println("**Start of Loop**");
   
   // Get the current level of water  
-  waterLevel = getWaterLevel();
+  waterLevel = getWaterLevel(30);
+  Serial.print("Current water level from bottom: ");
+  Serial.println(waterLevel);
+  
+  // Check for the temperature. Not being used right now
+  // temperatureCheck();
 
-  // Check for the temperature.
-  temperatureCheck();
-
-  if(autoriumOperationMode=0){
-    // This is a simple extraction and refill process
-
-    if (waterLevel < maxWaterLevel){
-       // We will need to refill water
-       digitalWrite(INWARD_FLOW_SOLENOID_PIN, HIGH);
-       autoriumCurrentState = 2;
-    }
-    else{
-      // Stop the refill process
+  // Check for the current state
+  autoriumCurrentState = EEPROM.read(0);
+  Serial.print("Autorium Current State: ");
+  Serial.println(autoriumCurrentState);
+/*
+  if(autoriumCurrentState==1){
+    
+    // if water level has gone beyond min water level, stop the outlet & extraction motor, and start the inlet process
+    if(waterLevel < minWaterLevel){
+      Serial.println("Water has reached minimum permissiable level. Stopping extraction.");
+      digitalWrite(INWARD_FLOW_SOLENOID_PIN, HIGH);
+      digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);
+      digitalWrite(EXTRACTOR_RELAY_PIN, LOW);
+      autoriumState = 2;
+      EEPROM.update(0, autoriumState);
+      return 0;
+    }   
+  } else if(autoriumCurrentState==2){
+    
+    // if water level has gone beyond max water level, stop the inlet/outlet & extraction motor
+    if(waterLevel > maxWaterLevel){
+      Serial.println("Water has reached maximum permissiable level. Stopping all operations.");
       digitalWrite(INWARD_FLOW_SOLENOID_PIN, LOW);
-      autoriumCurrentState = 0;
+      digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);
+      digitalWrite(EXTRACTOR_RELAY_PIN, LOW);
+      autoriumState = 0;
+      EEPROM.update(0, autoriumState);
+      digitalWrite(FILTER_RELAY_PIN, HIGH); // Enable the filter
+      return 0;
     }
-
-    Serial.print("Flow sensor value >");
-    Serial.println(inwardFlowCount);
     
   }
+  */
 
-  Serial.println("**End of Run**");
+/*
+  // At this level, extraction and refill should go together
+  if(waterLevel < (minWaterLevel + 27)){
+    digitalWrite(INWARD_FLOW_SOLENOID_PIN, HIGH);
+    digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, HIGH);
+    digitalWrite(EXTRACTOR_RELAY_PIN, HIGH);
+    autoriumState = 2;
+    return 0;
+  }
+
+  // At this level, switch off the extraction and keep on refilling
+  if(waterLevel > (minWaterLevel + 27)){
+    digitalWrite(INWARD_FLOW_SOLENOID_PIN, HIGH);
+    digitalWrite(OUTWARD_FLOW_SOLENOID_PIN, LOW);
+    digitalWrite(EXTRACTOR_RELAY_PIN, LOW);
+    autoriumState = 2;
+    return 0;
+  }
+    
+*/
+  Serial.print("Inward Flow sensor value:");
+  Serial.println(inwardFlowCount);
+
+  Serial.print("Water inlet in Liters:");
+  Serial.println(inwardFlowCount/480);
+
+  Serial.print("Outward Flow sensor value:");
+  Serial.println(outwardFlowCount);
+
+  Serial.print("Water outlet in litres:");
+  Serial.println(outwardFlowCount/480);
+
+    
+  Serial.println("**End of Loop**");
   Serial.println("");
 }
 
@@ -165,30 +298,55 @@ void temperatureCheck(void){
     
 }
 
-int getWaterLevel(void){
+int getWaterLevel(byte repeatReadings){
   unsigned int echoTime;                            // Time difference returned by ultrasonic sensor in microseconds
   int waterDistance;                                // Distance of water from ultrasonic sensor
   int waterLevelFromBottom;                         // Water Level from bottom, calculated using aquarium height
   
-  echoTime  = sonar.ping_median(5);                 // Ultrasonic sensor can return false values. Safer to use this to get an approximate value
+  echoTime  = sonar.ping_median(repeatReadings);                 // Ultrasonic sensor can return false values. Safer to use this to get an approximate value
   waterDistance = sonar.convert_cm(echoTime);       // Convert the microseconds to centimeters
   waterLevelFromBottom = aquariumHeight - waterDistance;
 
-  Serial.print("Echo time from ultrsonic sensor -> ");
+  // Check if this is the first run
+  if(arWaterLevel[0] == 0){
+    arWaterLevel[0] = waterLevelFromBottom;
+    return waterLevelFromBottom;
+  }
+
+  // Check if the water level is out of bound, if yes return the previous value
+  if(abs(waterLevelFromBottom - arWaterLevel[0]) > 10){
+    return arWaterLevel[0];
+  }
+
+  // move all values one step ahead starting from index 1  
+  int levelCounter;
+  for(levelCounter=1;levelCounter < 10; levelCounter++){
+    arWaterLevel[levelCounter] = arWaterLevel[levelCounter - 1];
+  }
+
+  // Store the current value in 0th position
+  arWaterLevel[0] = waterLevelFromBottom;
+
+  for(levelCounter=1;levelCounter < 10; levelCounter++){
+    waterLevelFromBottom = (arWaterLevel[levelCounter] + waterLevelFromBottom ) / 2;
+  }
+  
+  Serial.print("Echo time from ultrasonic sensor: ");
   Serial.println(echoTime);
-  Serial.print("Distance of water from ultrasonic sensor -> ");
+  Serial.print("Distance of water from ultrasonic sensor: ");
   Serial.println(waterDistance);
-  Serial.print("Height of water from bottom of aquarium -> ");
+  Serial.print("Height of water from bottom of aquarium: ");
   Serial.println(waterLevelFromBottom);     
 
   #if defined(LCD_MODE)
     lcd.clear();
     lcd.setCursor(0,0);
-    lcd.print("Water level >");
+    lcd.print("Water level :");
     lcd.setCursor(0,1);
     lcd.print(waterLevelFromBottom);  
   #endif
 
+  
   return waterLevelFromBottom;  
 }
 
@@ -223,7 +381,8 @@ void errorMode(int criticalError){
 void initRelayBoard(int relayPinStart, int relayPorts){
   
   for(int iCounter=relayPinStart;iCounter < relayPinStart + relayPorts;iCounter++){
-  
+
+    pinMode(iCounter, OUTPUT);
     digitalWrite(iCounter, HIGH);   // turn the Relay on (HIGH is the voltage level)
     delay(100);              // wait for 500 milliseconds
     digitalWrite(iCounter, LOW);    // turn the relay off by making the voltage LOW
@@ -239,7 +398,6 @@ void initRelayBoard(int relayPinStart, int relayPorts){
   }
   
 }
-
 
 void initLCD(int columns, int rows){
   #if defined(LCD_MODE)
@@ -265,7 +423,6 @@ void initLCD(int columns, int rows){
     lcd.print(AUTORIUM_VERSION);
   #endif
 }
-
 
 void inwardFlowSensor(void){
   inwardFlowCount++;
@@ -317,131 +474,6 @@ void i2cScanner(void){
    
 }
 
-// ** RTC Clock functions start
-// Convert normal decimal numbers to binary coded decimal
-byte decToBcd(byte val){
-  return( (val/10*16) + (val%10) );
-}
-
-// Convert binary coded decimal to normal decimal numbers
-byte bcdToDec(byte val){
-  return( (val/16*10) + (val%16) );
-}
-
-//Set the RTC clock time
-void setDS3231time(byte second, byte minute, byte hour, byte dayOfWeek, byte dayOfMonth, byte month, byte year){
-  // sets time and date data to DS3231
-  Wire.beginTransmission(RTC_I2C_ADDRESS);
-  Wire.write(0); // set next input to start at the seconds register
-  Wire.write(decToBcd(second)); // set seconds
-  Wire.write(decToBcd(minute)); // set minutes
-  Wire.write(decToBcd(hour)); // set hours
-  Wire.write(decToBcd(dayOfWeek)); // set day of week (1=Sunday, 7=Saturday)
-  Wire.write(decToBcd(dayOfMonth)); // set date (1 to 31)
-  Wire.write(decToBcd(month)); // set month
-  Wire.write(decToBcd(year)); // set year (0 to 99)
-  Wire.endTransmission();
-}
-
-// Get the RTC clock time
-void readDS3231time(byte *second, byte *minute, byte *hour, byte *dayOfWeek, byte *dayOfMonth, byte *month, byte *year){
-  Wire.beginTransmission(RTC_I2C_ADDRESS);
-  Wire.write(0); // set DS3231 register pointer to 00h
-  Wire.endTransmission();
-  Wire.requestFrom(RTC_I2C_ADDRESS, 7);
-  // request seven bytes of data from DS3231 starting from register 00h
-  *second = bcdToDec(Wire.read() & 0x7f);
-  *minute = bcdToDec(Wire.read());
-  *hour = bcdToDec(Wire.read() & 0x3f);
-  *dayOfWeek = bcdToDec(Wire.read());
-  *dayOfMonth = bcdToDec(Wire.read());
-  *month = bcdToDec(Wire.read());
-  *year = bcdToDec(Wire.read());
-}
-
-// Format the time retrieved from RTC clock
-void displayTime(void){
+void calculateWaterLevel(int CurrentWaterLevel){
   
-  byte second, minute, hour, dayOfWeek, dayOfMonth, month, year;
-  // retrieve data from DS3231
-  readDS3231time(&second, &minute, &hour, &dayOfWeek, &dayOfMonth, &month,
-  &year);
-
-  #if defined(LCD_MODE)
-    lcd.clear();
-    lcd.setCursor(0,0);
-    lcd.print(dayOfMonth);
-    lcd.print("-");
-    lcd.print(month);
-    lcd.print("-");
-    lcd.print(year);
-    lcd.print(" ");
-    lcd.print(hour);
-    lcd.print(":");
-    lcd.print(minute);
-    lcd.setCursor(0,1);
-    switch(dayOfWeek){
-      case 1:
-        lcd.print("Sunday");
-        break;
-      case 2:
-        lcd.print("Monday");
-        break;
-      case 3:
-        lcd.print("Tuesday");
-        break;
-      case 4:
-        lcd.print("Wednesday");
-        break;
-      case 5:
-        lcd.print("Thursday");
-        break;
-      case 6:
-        lcd.print("Friday");
-        break;
-      case 7:
-        lcd.print("Saturday");
-        break;
-    }
-  #endif
-
-  // send it to the serial monitor. convert the byte variable to a decimal number when displayed
-  Serial.print(hour, DEC);
-  Serial.print(":");
-  Serial.print(minute, DEC);
-  Serial.print(":");
-  Serial.print(second, DEC);
-  Serial.print(" ");
-  Serial.print(dayOfMonth, DEC);
-  Serial.print("/");
-  Serial.print(month, DEC);
-  Serial.print("/");
-  Serial.print(year, DEC);
-  Serial.print(" Day of week: ");
-  switch(dayOfWeek){
-    case 1:
-      Serial.println("Sunday");
-      break;
-    case 2:
-      Serial.println("Monday");
-      break;
-    case 3:
-      Serial.println("Tuesday");
-      break;
-    case 4:
-      Serial.println("Wednesday");
-      break;
-    case 5:
-      Serial.println("Thursday");
-      break;
-    case 6:
-      Serial.println("Friday");
-      break;
-    case 7:
-      Serial.println("Saturday");
-      break;
-  }
 }
-// ** RTC Clock functions end
-
-
